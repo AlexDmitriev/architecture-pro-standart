@@ -1,0 +1,88 @@
+@startuml
+!theme cerulean
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' ===== АКТЕРЫ =====
+Person(client, "Клиент банка", "Пользуется банковскими услугами")
+Person(callcenter_agent, "Сотрудник кол-центра", "Обслуживает клиентов по телефону")
+Person(backoffice_agent, "Сотрудник бэк-офиса", "Выполняет внутренние банковские операции")
+
+' ===== ВНЕШНИЕ СИСТЕМЫ =====
+System_Ext(sms_gateway, "СМС-шлюз", "Внешний сервис отправки SMS")
+
+' ===== СИСТЕМА 1: ВЕБ-САЙТ =====
+System_Boundary(site_system, "Веб-сайт") {
+    Container(website_front, "React.js UI", "JavaScript, React.js", "Пользовательский интерфейс сайта")
+    Container(website_back, "PHP Бэкенд", "PHP", "Бизнес-логика сайта")
+    ContainerDb(website_db, "База данных", "MySQL/PostgreSQL", "Хранение контента сайта")
+    
+    Rel(website_front, website_back, "API вызовы", "HTTPS")
+    Rel(website_back, website_db, "Чтение/запись данных", "JDBC/ODBC")
+}
+
+' ===== СИСТЕМА 2: ИНТЕРНЕТ-БАНК =====
+System_Boundary(ibank_system, "Интернет-банк") {
+    Container(internet_bank, "ASP.NET MVC 4.5", "C#, .NET Framework 4.5", "Монолитное приложение интернет-банка") {
+        Note right of internet_bank
+            Развернут в ЦОД
+            с резервным ЦОД
+        end note
+    }
+    ContainerDb(ibank_db, "MS SQL Server", "Microsoft SQL Server", "Хранение данных клиентов и транзакций")
+    
+    ' Интеграционные компоненты в ЦОД интернет-банка
+    ContainerQueue(kafka, "Kafka", "Apache Kafka", "Асинхронный обмен сообщениями")
+    Container(ftp_server, "FTP сервер", "FileZilla/VSFTPD", "Обмен файлами между системами")
+    
+    Rel(internet_bank, ibank_db, "Чтение/запись транзакций", "SQL")
+    Rel(internet_bank, kafka, "Публикация/подписка событий", "Kafka Protocol")
+    Rel(kafka, ftp_server, "Обработка файловых событий", "Internal API")
+}
+
+' ===== СИСТЕМА 3: КОЛ-ЦЕНТР CRM =====
+System_Boundary(callcenter_system, "Кол-центр CRM") {
+    Container(cc_front, "React.js UI", "JavaScript, React.js", "Интерфейс сотрудника кол-центра")
+    Container(cc_back, "Java Spring Boot", "Java, Spring Boot", "Бэкенд CRM системы")
+    ContainerDb(cc_db, "PostgreSQL", "PostgreSQL", "Хранение данных клиентов и обращений")
+    
+    Rel(cc_front, cc_back, "API вызовы", "HTTPS")
+    Rel(cc_back, cc_db, "Чтение/запись данных", "JDBC")
+}
+
+' ===== СИСТЕМА 4: АБС =====
+System_Boundary(abs_system_boundary, "АБС") {
+    Container(abs_client, "Delphi клиент", "Delphi", "Десктопное приложение АБС")
+    ContainerDb(abs_db, "Oracle СУБД", "Oracle Database", "Хранение всех банковских данных")
+    
+    Rel(abs_client, abs_db, "Чтение/запись банковских данных", "SQL/PL-SQL")
+}
+
+' ===== ВЗАИМОДЕЙСТВИЯ С АКТЕРАМИ =====
+Rel(client, website_front, "Просматривает информацию о депозитах", "HTTPS")
+Rel(client, internet_bank, "Подает заявку на депозит", "HTTPS")
+Rel(callcenter_agent, cc_front, "Работает с клиентами", "HTTPS")
+Rel(backoffice_agent, abs_client, "Выполняет банковские операции", "Windows GUI")
+
+' ===== МЕЖСИСТЕМНЫЕ ВЗАИМОДЕЙСТВИЯ =====
+' REST API между сайтом и кол-центром
+Rel(website_back, cc_back, "REST API запросы", "HTTPS/JSON")
+
+' Kafka взаимодействия
+Rel(internet_bank, kafka, "Отправка заявки на депозит в АБС", "Kafka Producer")
+Rel(kafka, abs_client, "Доставка заявки на депозит в АБС", "Kafka Consumer")
+Rel(cc_back, kafka, "Отправка заявки на депозит в АБС", "Kafka Producer")
+Rel(kafka, cc_back, "Получение заявок на депозит из АБС", "Kafka Consumer")
+
+' FTP взаимодействия
+Rel(cc_back, ftp_server, "Выгрузка Excel-файлов со ставками по депозитам", "FTP")
+Rel(abs_client, ftp_server, "Загрузка Excel-файлов со ставками по депозитам", "FTP")
+
+' Внешние взаимодействия
+Rel(abs_client, sms_gateway, "Отправка SMS клиентам", "HTTP API/SOAP")
+
+' ===== ДОПОЛНИТЕЛЬНЫЕ СВЯЗИ =====
+' Обратная связь через Kafka
+Rel_L(kafka, internet_bank, "Статусы по депозитам из АБС", "Kafka Consumer")
+Rel_R(abs_client, kafka, "Подтверждения ставок по депозитам", "Kafka Producer")
+
+@enduml

@@ -1,0 +1,20 @@
+@startuml
+!theme cerulean
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+top to bottom direction
+
+Person(cc_manager, "Менеджер кол-центра")
+Person(bo_manager, "Менеджер бэк-офиса")
+
+System(call_center, "Кол-центр", "Java Spring Boot, React.js и PostgreSQL")
+System(transfer_microservice, "Микросервис передачи ставок", "PHP")
+System(abs, "АБС", "Delphi, Oracle.")
+
+Rel(bo_manager, abs, "Актуализация ставок")
+Rel(cc_manager, call_center, "Просмотр актуальных ставок")
+
+Rel(abs, transfer_microservice, "Предача актуальных ставок по депозитам в микросервис")
+Rel(ctransfer_microservice, call_center, "Предача Excel-файлов со ставками кол-центр")
+
+@enduml

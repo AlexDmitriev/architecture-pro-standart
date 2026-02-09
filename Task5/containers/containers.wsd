@@ -1,0 +1,97 @@
+@startuml
+!theme cerulean
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' ===== АКТЕРЫ =====
+Person(client, "Клиент банка", "Пользуется банковскими услугами")
+Person(backoffice_agent, "Сотрудник бэк-офиса", "Выполняет внутренние банковские операции")
+
+' ===== ВНЕШНИЕ СИСТЕМЫ =====
+System_Ext(credit_bureau, "Бюро кредитных историй", "REST API", "Внешнее бюро кредитных историй")
+System_Ext(sms_gateway, "СМС-шлюз", "SMS API", "Внешний сервис отправки SMS")
+
+' ===== СИСТЕМА 1: ВЕБ-САЙТ =====
+System_Boundary(website_system, "Веб-сайт") {
+    Container(website_front, "React.js UI", "JavaScript, React.js", "Пользовательский интерфейс сайта")
+    Container(website_back, "PHP Бэкенд", "PHP", "Бизнес-логика сайта")
+    ContainerDb(website_db, "База данных сайта", "MySQL/PostgreSQL", "Хранение контента и данных сайта")
+    
+    Rel(website_front, website_back, "API вызовы", "HTTPS")
+    Rel(website_back, website_db, "Чтение/запись данных", "JDBC/ODBC")
+}
+
+' ===== СИСТЕМА 2: ИНТЕРНЕТ-БАНК =====
+System_Boundary(ibank_system, "Интернет-банк") {
+    Container(internet_bank, "ASP.NET MVC 4.5", "C#, .NET Framework 4.5", "Монолитное приложение интернет-банка")
+    ContainerDb(ibank_db, "MS SQL Server", "Microsoft SQL Server", "Хранение данных клиентов и транзакций")
+    
+    Rel(internet_bank, ibank_db, "Чтение/запись транзакций", "SQL")
+}
+
+' ===== СИСТЕМА 3: АБС =====
+System_Boundary(abs_system, "АБС") {
+    Container(abs_client, "Delphi клиент", "Delphi", "Десктопное приложение АБС")
+    ContainerDb(abs_db, "Oracle СУБД", "Oracle Database", "Хранение банковских данных")
+    
+    Rel(abs_client, abs_db, "Чтение/запись банковских данных", "SQL/PL-SQL")
+}
+
+' ===== СИСТЕМА 4: КРЕДИТНЫЙ КОНВЕЕР =====
+System_Boundary(credit_system, "Кредитный конвеер") {
+    Container(camunda_bpm, "Camunda BPM", "Java, Camunda", "BPM-система для кредитного процесса")
+}
+
+' ===== СИСТЕМА 5: СКОРИНГОВАЯ СИСТЕМА =====
+System_Boundary(scoring_system, "Скоринговая система") {
+    Container(flask_api, "Flask REST API", "Python, Flask", "REST API для скоринга")
+    ContainerDb(scoring_db, "PostgreSQL", "PostgreSQL", "Хранение скоринговых данных")
+    
+    Rel(flask_api, scoring_db, "Чтение/запись данных", "SQLAlchemy")
+}
+
+' ===== СИСТЕМА 6: ХРАНИЛИЩЕ ЗАЯВОК =====
+System_Boundary(storage_system, "Хранилище заявок") {
+    ContainerDb(credit_storage, "Хранилище заявок", "База данных", "Общее хранилище для АБС и Кредитного конвеера")
+}
+
+' ===== СИСТЕМА 7: ИНТЕГРАЦИОННАЯ ШИНА =====
+System_Boundary(integration_system, "Интеграционная шина") {
+    ContainerQueue(kafka, "Kafka", "Apache Kafka", "Асинхронный обмен сообщениями между системами")
+}
+
+' ===== ВЗАИМОДЕЙСТВИЯ С АКТЕРАМИ =====
+Rel(client, website_front, "Просматривает информацию", "HTTPS")
+Rel(client, internet_bank, "Выполняет банковские операции", "HTTPS")
+Rel(backoffice_agent, abs_client, "Выполняет банковские операции", "Windows GUI")
+Rel(backoffice_agent, camunda_bpm, "Управляет кредитным процессом", "Web UI")
+
+' ===== ВНЕШНИЕ ВЗАИМОДЕЙСТВИЯ =====
+Rel(website_back, credit_bureau, "Запрос кредитной истории", "REST API/HTTPS")
+Rel(camunda_bpm, credit_bureau, "Запрос кредитной истории", "REST API/HTTPS")
+Rel(abs_client, sms_gateway, "Отправка SMS клиентам", "HTTP API")
+
+' ===== МЕЖСИСТЕМНЫЕ ВЗАИМОДЕЙСТВИЯ ЧЕРЕЗ KAFKA =====
+' Веб-сайт -> Kafka -> АБС
+Rel(website_back, kafka, "Отправка данных клиента", "Kafka Producer")
+Rel(kafka, abs_client, "Получение данных от сайта", "Kafka Consumer")
+
+' Интернет-банк <-> Kafka <-> АБС (двустороннее)
+Rel(internet_bank, kafka, "Отправка транзакций/заявок", "Kafka Producer")
+Rel(kafka, abs_client, "Получение данных от интернет-банка", "Kafka Consumer")
+Rel(abs_client, kafka, "Отправка данных в интернет-банк", "Kafka Producer")
+Rel(kafka, internet_bank, "Получение данных от АБС", "Kafka Consumer")
+
+' ===== ВЗАИМОДЕЙСТВИЯ С ХРАНИЛИЩЕМ ЗАЯВОК =====
+' АБС <-> Хранилище (двустороннее)
+Rel(abs_client, credit_storage, "Чтение/запись заявок", "JDBC/ODBC")
+Rel(credit_storage, abs_client, "Оповещения об изменениях", "Triggers/API")
+
+' Кредитный конвеер <-> Хранилище (двустороннее)
+Rel(camunda_bpm, credit_storage, "Чтение/запись заявок", "JDBC/ODBC")
+Rel(credit_storage, camunda_bpm, "Оповещения об изменениях", "Triggers/API")
+
+' ===== ВЗАИМОДЕЙСТВИЯ СКОРИНГОВОЙ СИСТЕМЫ =====
+' Кредитный конвеер -> Скоринговая система
+Rel(camunda_bpm, flask_api, "Запрос скоринга", "REST API/HTTPS")
+
+@enduml

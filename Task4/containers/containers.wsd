@@ -1,0 +1,51 @@
+@startuml
+!theme cerulean
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' ===== АКТЕРЫ =====
+Person(callcenter_agent, "Сотрудник кол-центра", "Обслуживает клиентов по телефону")
+Person(backoffice_agent, "Сотрудник бэк-офиса", "Выполняет внутренние банковские операции")
+
+' ===== СИСТЕМА 1: МИКРОСЕРВИС ФОРМИРОВАНИЯ СТАВОК =====
+System_Boundary(rates_system, "Микросервис формирования ставок") {
+    Container(rates_service, "PHP сервис", "PHP", "Формирование и передача ставок по депозитам")
+}
+
+' ===== СИСТЕМА 2: КОЛ-ЦЕНТР CRM =====
+System_Boundary(callcenter_system, "Кол-центр CRM") {
+    Container(cc_front, "React.js UI", "JavaScript, React.js", "Интерфейс сотрудника кол-центра")
+    Container(cc_back, "Java Spring Boot", "Java, Spring Boot", "Бэкенд CRM системы")
+    ContainerDb(cc_db, "PostgreSQL", "PostgreSQL", "Хранение данных клиентов и обращений")
+    Container(cc_ftp_server, "FTP сервер", "FTP сервис", "Прием файлов со ставками")
+    
+    Rel(cc_front, cc_back, "API вызовы", "HTTPS")
+    Rel(cc_back, cc_db, "Чтение/запись данных", "JDBC")
+    Rel(cc_back, cc_ftp_server, "Чтение файлов с FTP", "FTP Client")
+}
+
+' ===== СИСТЕМА 3: АБС =====
+System_Boundary(abs_system, "АБС") {
+    Container(abs_client, "Delphi клиент", "Delphi", "Десктопное приложение АБС")
+    ContainerDb(abs_db, "Oracle СУБД", "Oracle Database", "Хранение банковских данных, включая ставки")
+    
+    Rel(abs_client, abs_db, "Чтение/запись банковских данных", "SQL/PL-SQL")
+}
+
+' ===== СИСТЕМА 4: ИНТЕГРАЦИОННАЯ ШИНА =====
+System_Boundary(integration_system, "Интеграционная шина") {
+    ContainerQueue(kafka, "Kafka", "Apache Kafka", "Асинхронный обмен сообщениями между системами")
+}
+
+' ===== ВЗАИМОДЕЙСТВИЯ С АКТЕРАМИ =====
+Rel(callcenter_agent, cc_front, "Работает с клиентами", "HTTPS")
+Rel(backoffice_agent, abs_client, "Выполняет банковские операции", "Windows GUI")
+
+' ===== МЕЖСИСТЕМНЫЕ ВЗАИМОДЕЙСТВИЯ =====
+' АБС -> Kafka -> Микросервис ставок
+Rel(abs_client, kafka, "Отправка данных по ставкам", "Kafka Producer")
+Rel(kafka, rates_service, "Получение данных по ставкам", "Kafka Consumer")
+
+' Микросервис -> FTP кол-центра
+Rel(rates_service, cc_ftp_server, "Загрузка Excel-файла со ставками", "FTP")
+
+@enduml

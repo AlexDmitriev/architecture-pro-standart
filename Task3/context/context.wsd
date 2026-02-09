@@ -1,0 +1,34 @@
+@startuml
+!theme cerulean
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+top to bottom direction
+
+Person(client, "Клиент")
+Person(cc_manager, "Менеджер кол-центра")
+Person(bo_manager, "Менеджер бэк-офиса")
+
+System(website, "Сайт", "PHP и React.js")
+System(call_center, "Кол-центр", "Java Spring Boot, React.js и PostgreSQ")
+System(internet_back, "Интернет-банк", "ASP.NET MVC 4.5 на основе .NET Framework 4.5 и СУБД MS SQL")
+System(abs, "АБС", "Delphi, Oracle.")
+System_Ext(sms_gate, "СМС-шлюз")
+
+Rel(client, website, "Просмотр ставок по дипозитам, подача заявки")
+Rel(client, internet_back, "Просмотр ставок по дипозитам, подача заявки")
+
+Rel(cc_manager, call_center, "Предворительная обработка заявок на депозит")
+Rel(bo_manager, abs, "Обработка заявок на депозит")
+
+
+Rel(website, call_center, "Предача заявок на депозит в кол-центр")
+Rel(call_center, abs, "Предача заявок на депозит в АБС")
+Rel(internet_back, abs, "Предача заявок на депозит в АБС")
+
+Rel(abs, call_center, "Уточнение ставок по депозиту")
+Rel(abs, sms_gate, "Подтверждение операции")
+Rel(abs, internet_back, "Создание депозита")
+
+Rel(sms_gate, client, "Подтверждение операции")
+
+@enduml
